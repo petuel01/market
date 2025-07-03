@@ -30,6 +30,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['pending_user_id'] = $user_id;
             $_SESSION['pending_email'] = $email;
             $_SESSION['pending_otp'] = $otp; // For simulation
+
+            // Send verification email
+            require_once 'mail_helper.php';
+            $subject = 'Verify your email for Campus Market';
+            $body_html = '<p>Hello ' . htmlspecialchars($name) . ',</p>' .
+                '<p>Thank you for registering at Campus Market. Your verification code is: <b>' . $otp . '</b></p>' .
+                '<p>This code will expire in 10 minutes.</p>' .
+                '<p>Thank you,<br>Campus Market Team</p>';
+            send_email($email, $name, $subject, $body_html);
+
             header('Location: verify_otp.php');
             exit;
         }

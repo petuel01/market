@@ -26,6 +26,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['my_listing_id'])) {
     $insert = $pdo->prepare('INSERT INTO swap_requests (requester_id, owner_id, requester_listing_id, owner_listing_id, status) VALUES (?, ?, ?, ?, "pending")');
     $insert->execute([$user_id, $target_listing['user_id'], $my_listing_id, $target_listing_id]);
     $success = 'Swap request sent! The owner will be notified.';
+
+    // Send email notification to the owner
+    require_once 'mail_helper.php';
+    // Get owner's email and name
+    $owner_stmt = $pdo->prepare('SELECT email, name FROM users WHERE id = ?');
+    $owner_stmt->execute([$target_listing['user_id']]);
+    $owner = $owner_stmt->fetch();
+    if ($owner && !empty($owner['email'])) {
+        $subject = 'New Swap Request on Campus Market';
+        $body_html = '<p>Hello ' . htmlspecialchars($owner['name']) . ',</p>' .
+            '<p>You have received a new swap request for your listing: <b>' . htmlspecialchars($target_listing['title']) . '</b>.</p>' .
+            '<p>Please log in to your account to view and respond to the request.</p>' .
+            '<p>Thank you,<br>Campus Market Team</p>';
+        send_email($owner['email'], $owner['name'], $subject, $body_html);
+    }
 }
 ?>
 <!DOCTYPE html>

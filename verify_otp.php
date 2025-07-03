@@ -5,20 +5,38 @@ if (!isset($_SESSION['pending_user_id'])) {
 }
 $user_id = $_SESSION['pending_user_id'];
 $email = $_SESSION['pending_email'];
-$otp = $_SESSION['pending_otp']; // For simulation
+$otp = $_SESSION['pending_otp'];
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $input_otp = trim($_POST['otp']);
-    $stmt = $pdo->prepare('SELECT code, expires_at FROM verification_codes WHERE user_id = ? ORDER BY id DESC LIMIT 1');
-    $stmt->execute([$user_id]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    if ($row && $row['code'] === $input_otp && strtotime($row['expires_at']) > time()) {
-        $pdo->prepare('UPDATE users SET is_verified = 1 WHERE id = ?')->execute([$user_id]);
-        unset($_SESSION['pending_user_id'], $_SESSION['pending_email'], $_SESSION['pending_otp']);
-        $_SESSION['success'] = 'Account verified! You can now login.';
-        header('Location: login.php'); exit;
+    if (isset($_POST['resend_otp'])) {
+        // Generate and send a new OTP
+        $otp = rand(100000, 999999);
+        $expires = date('Y-m-d H:i:s', time() + 600);
+        $pdo->prepare('INSERT INTO verification_codes (user_id, code, expires_at) VALUES (?, ?, ?)')
+            ->execute([$user_id, $otp, $expires]);
+        $_SESSION['pending_otp'] = $otp;
+        // Send OTP email
+        require_once 'mail_helper.php';
+        $subject = 'Your Campus Market OTP Code';
+        $body_html = '<p>Hello,</p>' .
+            '<p>Your new OTP code is: <b>' . $otp . '</b></p>' .
+            '<p>This code will expire in 10 minutes.</p>' .
+            '<p>Thank you,<br>Campus Market Team</p>';
+        send_email($email, '', $subject, $body_html);
+        $error = '<span style="color:green;">A new OTP has been sent to your email.</span>';
     } else {
-        $error = 'Invalid or expired OTP.';
+        $input_otp = trim($_POST['otp']);
+        $stmt = $pdo->prepare('SELECT code, expires_at FROM verification_codes WHERE user_id = ? ORDER BY id DESC LIMIT 1');
+        $stmt->execute([$user_id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row && $row['code'] === $input_otp && strtotime($row['expires_at']) > time()) {
+            $pdo->prepare('UPDATE users SET is_verified = 1 WHERE id = ?')->execute([$user_id]);
+            unset($_SESSION['pending_user_id'], $_SESSION['pending_email'], $_SESSION['pending_otp']);
+            $_SESSION['success'] = 'Account verified! You can now login.';
+            header('Location: login.php'); exit;
+        } else {
+            $error = 'Invalid or expired OTP.';
+        }
     }
 }
 ?>
@@ -36,7 +54,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php include 'navbar.php'; ?>
 <div class="container mt-5" style="max-width: 400px;">
     <h2 class="mb-4 text-center">Verify OTP</h2>
-    <div class="alert alert-info">(Simulation) Your OTP is: <b><?=$otp?></b></div>
+    <!-- OTP is sent to email, not shown here for security -->
+    <div class="alert alert-info">An OTP has been sent to your email: <b><?=htmlspecialchars($email)?></b></div>
+    <div class="mb-2 text-center">
+        <form method="post" style="display:inline;">
+            <input type="hidden" name="resend_otp" value="1">
+            <button type="submit" class="btn btn-link p-0" style="color:#2541b2;">Resend OTP</button>
+        </form>
+    </div>
     <?php if ($error): ?><div class="alert alert-danger"><?=$error?></div><?php endif; ?>
     <form method="post">
         <div class="mb-3">

@@ -5,14 +5,14 @@
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-require 'assets/PHPMailer/src/Exception.php';
-require 'assets/PHPMailer/src/PHPMailer.php';
-require 'assets/PHPMailer/src/SMTP.php';
+
+// Use Composer autoloader for PHPMailer
+require __DIR__ . '/vendor/autoload.php';
 
 function send_email($to, $to_name, $subject, $body_html, $body_text = '') {
     $mail = new PHPMailer(true);
     try {
-        // SMTP config
+        // SMTP config (production ready)
         $mail->isSMTP();
         $mail->Host = 'smtp.gmail.com';
         $mail->SMTPAuth = true;
